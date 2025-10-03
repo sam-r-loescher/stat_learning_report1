@@ -33,21 +33,38 @@ K = 5
 target_edu = 8
 target_happy = 4
 my_new_knn <- function(
-    K, target_edu, target_happy, dat
+    K, target_edu, target_happy, weights = c(1,1), dat
 ){
   tmp <- tibble(
     edu = c(target_edu, dat$edu_numeric),
     happy = c(target_happy, dat$happy_numeric)
   )
-  dist_matrix <- daisy(tmp, metric = "gower") %>% as.matrix()
-  dist_vector <- dist_matrix[,1, drop = T]
+ # dist_matrix <- daisy(tmp, metric = "gower") %>% as.matrix()
+  #dist_vector <- dist_matrix[,1, drop = T]
   
+  #dat %>%
+   # ungroup %>%
+    #mutate(
+     # diff = dist_vector[-1]
+    #) %>%
+    #arrange(diff) %>%
+    #slice(1:K) %>%
+    #dplyr::summarise(
+    #  pred = mean(whz_numeric, na.rm = TRUE)) %>%
+    #dplyr::pull(pred)
+  
+  
+  gower_dist <- as.matrix(cluster::daisy(
+    tmp, metric = "gower", weights = weights
+  ))[1,-1]
+  
+  # now the usual knn process
   dat %>%
     ungroup %>%
     mutate(
-      diff = dist_vector[-1]
+      dist = gower_dist
     ) %>%
-    arrange(diff) %>%
+    arrange(dist) %>%
     slice(1:K) %>%
     dplyr::summarise(
       pred = mean(whz_numeric, na.rm = TRUE)) %>%
@@ -85,7 +102,69 @@ for(i in 1:nrow(grid)){
     target_happy = grid[i,2],
     dat = data
   )}
+################### testing ###############################################################################################
+#set.seed(09302025)
+training_ndx <- sample(1:nrow(data), size = round(.7*nrow(data))) %>% sort()
+testing_ndx <- c(1:nrow(data))[-training_ndx]
+training_df <- data %>% ungroup %>% slice(training_ndx)
+testing_df <- data %>% ungroup %>% slice(testing_ndx)
+testing_ndx
 
+# fit our KNN algorithm for multiple values of K
+# predict the values of our testing data set for each value of K
+# see which one does best
+grid <- testing_df %>%
+  ungroup %>%
+  dplyr::select(edu = edu_numeric, happy = happy_numeric)
+
+K = K_values[k]
+K_values <- 2:7
+#dat = training_df
+pred_matrix <- matrix(NA, nrow(grid), ncol = length(K_values))
+for(k in 1:length(K_values)){
+  for(i in 1:nrow(grid)){
+    pred_matrix[i,k] <- my_new_knn(
+      K = K_values[k], 
+      as.numeric(grid[i,1]),
+      as.numeric(grid[i,2]),
+      weights = c(1,1),
+      training_df
+    )
+  }
+}
+
+pred_tbl <- grid %>%
+  mutate(
+    truth = testing_df$whz_numeric,
+    `2` = pred_matrix[,1],
+    `3` = pred_matrix[,2],
+    `4` = pred_matrix[,3],
+    `5` = pred_matrix[,4],
+    `6` = pred_matrix[,5],
+    `7` = pred_matrix[,6]
+  ) %>%
+  pivot_longer(`2`:`7`, names_to = "K", values_to = "pred")
+
+# visualize
+pred_tbl %>%
+  ggplot() + 
+  geom_point(aes(x = edu, y = happy, col = pred)) +
+  facet_wrap(~ K) +
+  theme_bw() +
+  theme(legend.position = "bottom")
+
+# compute our loss function
+
+## attempt 2
+  pred_tbl %>%
+    mutate(SE = (truth - pred)^2) %>%
+    group_by(K)%>%
+    summarise(mse = mean(SE))
+  #, .groups = "drop"
+  #arrange((mse))
+  
+
+mean("Nickelback" == testing_df$artists)
 
 
 ##  ################# visualizing ################# ################# ################# ################# #################
@@ -104,4 +183,7 @@ p2 <- grid %>%
   geom_smooth()+
   theme_bw()
 p2
+
+
+
 
