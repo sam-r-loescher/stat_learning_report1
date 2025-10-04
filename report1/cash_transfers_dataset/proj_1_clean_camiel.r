@@ -374,3 +374,7 @@ ggsave("optimal_k_selection.png", p_cv, width = 10, height = 6, dpi = 300)
 cat("\nPlot saved to:", getwd(), "\n")
 
 # ========================================
+
+
+mean(data_final$whz_numeric)
+var(data_final$whz_numeric)
